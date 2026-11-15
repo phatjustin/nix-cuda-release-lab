@@ -1,0 +1,30 @@
+name: Package checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Install Nix
+        uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086 # v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = false
+      - name: Check formatting
+        run: nix fmt -- --check flake.nix nix/package.nix
+      - name: Build and test the installed package (no GPU)
+        run: nix flake check --print-build-logs --no-update-lock-file
+      - name: Expose the package and report its runtime closure
+        run: |
+          nix build --no-update-lock-file
+          ./result/bin/cuda-vector-add --version
+          nix path-info --recursive --closure-size ./result
